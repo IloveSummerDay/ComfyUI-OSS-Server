@@ -121,9 +121,7 @@ func main() {
 			})
 		}
 
-		c.JSON(http.StatusOK, SuccessResponse{
-			Data: file_oss_list,
-		})
+		c.JSON(http.StatusOK, file_oss_list)
 	})
 
 	// 启动服务
