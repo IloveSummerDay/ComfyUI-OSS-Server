@@ -3,10 +3,10 @@ package main
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"io"
 	"net/http"
 	"strconv"
-	"strings"
 
 	"github.com/aliyun/alibabacloud-oss-go-sdk-v2/oss"
 	"github.com/aliyun/alibabacloud-oss-go-sdk-v2/oss/credentials"
@@ -14,10 +14,9 @@ import (
 	"go.uber.org/zap"
 )
 
-var (
+const (
 	region     = "cn-hangzhou" // 存储区域
 	bucketName = "cuz-comfy"   // 存储空间名称
-	objectName string          // 对象名称
 )
 
 var logger *zap.Logger
@@ -59,6 +58,7 @@ func main() {
 			return
 		}
 
+		file_oss_list := []OSSFile{}
 		for _, file_name := range req.File_name_list {
 			url := "http://" + req.Ai_server_host + ":" + req.Ai_server_port + "/view?filename=" + file_name + "&type=output"
 			resp, err := http.Get(url)
@@ -97,8 +97,7 @@ func main() {
 				return
 			}
 
-			// 上传到 OSS
-			objectName = strings.Replace(file_name, " ", "_", -1)
+			objectName := GetTimestampFilename(file_name)
 			body := bytes.NewReader(image_bytes)
 			request := &oss.PutObjectRequest{
 				Bucket: oss.Ptr(bucketName),
@@ -114,10 +113,16 @@ func main() {
 				})
 				return
 			}
+
+			oss := fmt.Sprintf("https://%s.oss-%s.aliyuncs.com/%s?x-oss-process=style/small", bucketName, region, objectName)
+			file_oss_list = append(file_oss_list, OSSFile{
+				Filename: objectName,
+				OSS:      oss,
+			})
 		}
 
-		c.JSON(http.StatusOK, gin.H{
-			"message": "Request processed successfully",
+		c.JSON(http.StatusOK, SuccessResponse{
+			Data: file_oss_list,
 		})
 	})
 
