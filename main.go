@@ -59,7 +59,7 @@ func main() {
 		}
 
 		file_oss_list := []OSSFile{}
-		for _, file_name := range req.File_name_list {
+		for index, file_name := range req.File_name_list {
 			url := "http://" + req.Ai_server_host + ":" + req.Ai_server_port + "/view?filename=" + file_name + "&type=output"
 			resp, err := http.Get(url)
 			if err != nil {
@@ -97,7 +97,7 @@ func main() {
 				return
 			}
 
-			objectName := GetTimestampFilename(file_name)
+			objectName := GetTimestampFilename(file_name, index)
 			body := bytes.NewReader(image_bytes)
 			request := &oss.PutObjectRequest{
 				Bucket: oss.Ptr(bucketName),
