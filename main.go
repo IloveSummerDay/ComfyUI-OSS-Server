@@ -60,7 +60,7 @@ func main() {
 		}
 
 		for _, file_name := range req.File_name_list {
-			url := "http://" + req.Ai_server_host + ":" + req.Ai_server_port + "?filename=" + file_name + "&type=output"
+			url := "http://" + req.Ai_server_host + ":" + req.Ai_server_port + "/view?filename=" + file_name + "&type=output"
 			resp, err := http.Get(url)
 			if err != nil {
 				c.JSON(http.StatusInternalServerError, ErrorResponse{
@@ -92,7 +92,7 @@ func main() {
 			if contentLength >= 0 && int64(len(image_bytes)) != contentLength {
 				c.JSON(http.StatusInternalServerError, ErrorResponse{
 					Message: "Incomplete image data response body",
-					Error:   "Expected length: " + strconv.FormatInt(contentLength, 10) + ", but got: " + strconv.Itoa(len(image_bytes)),
+					Error:   "Expected length: " + strconv.FormatInt(contentLength, 10) + ", but t: " + strconv.Itoa(len(image_bytes)),
 				})
 				return
 			}
