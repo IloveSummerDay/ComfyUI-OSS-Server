@@ -14,9 +14,9 @@ import (
 )
 
 var (
-	region     string // 存储区域
-	bucketName string // 存储空间名称
-	objectName string // 对象名称
+	region     = "cn-hangzhou" // 存储区域
+	bucketName = "cuz-comfy"   // 存储空间名称
+	objectName string          // 对象名称
 )
 
 var logger *zap.Logger
@@ -105,6 +105,7 @@ func main() {
 					Message: "failed to put object",
 					Error:   err.Error(),
 				})
+				return
 			}
 		}
 
