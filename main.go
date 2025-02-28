@@ -61,7 +61,7 @@ func main() {
 
 		// http get image files
 		for _, file_name := range req.File_name_list {
-			resp, err := http.Get("http://" + req.Ai_server_port + ":" + req.Ai_server_port + "?filename=" + file_name + "&type=output")
+			resp, err := http.Get("http://" + req.Ai_server_host + ":" + req.Ai_server_port + "?filename=" + file_name + "&type=output")
 			if err != nil {
 				c.JSON(http.StatusInternalServerError,
 					ErrorResponse{
