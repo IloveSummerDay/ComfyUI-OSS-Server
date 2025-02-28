@@ -115,8 +115,8 @@ func main() {
 	})
 
 	// 启动服务
-	logger.Info("Server is running at http://localhost:8080")
-	if err := r.Run(":8080"); err != nil {
+	logger.Info("Server is running at http://localhost:8288")
+	if err := r.Run(":8288"); err != nil {
 		logger.Fatal("Failed to start server", zap.Error(err))
 	}
 }
