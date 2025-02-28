@@ -5,6 +5,7 @@ import (
 	"context"
 	"io"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/aliyun/alibabacloud-oss-go-sdk-v2/oss"
@@ -50,7 +51,6 @@ func main() {
 	r.POST("/save-oss", func(c *gin.Context) {
 		var req SaveOSSRequest
 
-		// parse args
 		if err := c.ShouldBindJSON(&req); err != nil {
 			c.JSON(http.StatusBadRequest, ErrorResponse{
 				Message: "parse json args error",
@@ -59,18 +59,16 @@ func main() {
 			return
 		}
 
-		// http get image files
 		for _, file_name := range req.File_name_list {
-			resp, err := http.Get("http://" + req.Ai_server_host + ":" + req.Ai_server_port + "?filename=" + file_name + "&type=output")
+			url := "http://" + req.Ai_server_host + ":" + req.Ai_server_port + "?filename=" + file_name + "&type=output"
+			resp, err := http.Get(url)
 			if err != nil {
-				c.JSON(http.StatusInternalServerError,
-					ErrorResponse{
-						Message: "Failed to fetch image from URL",
-						Error:   err.Error(),
-					})
+				c.JSON(http.StatusInternalServerError, ErrorResponse{
+					Message: "Failed to fetch image from URL",
+					Error:   err.Error(),
+				})
 				return
 			}
-
 			defer resp.Body.Close()
 
 			if resp.StatusCode != http.StatusOK {
@@ -80,6 +78,8 @@ func main() {
 				return
 			}
 
+			// 检查 Content-Length（如果存在）
+			contentLength := resp.ContentLength
 			image_bytes, err := io.ReadAll(resp.Body)
 			if err != nil {
 				c.JSON(http.StatusInternalServerError, ErrorResponse{
@@ -89,27 +89,33 @@ func main() {
 				return
 			}
 
-			// 创建上传对象的请求
+			if contentLength >= 0 && int64(len(image_bytes)) != contentLength {
+				c.JSON(http.StatusInternalServerError, ErrorResponse{
+					Message: "Incomplete image data response body",
+					Error:   "Expected length: " + strconv.FormatInt(contentLength, 10) + ", but got: " + strconv.Itoa(len(image_bytes)),
+				})
+				return
+			}
+
+			// 上传到 OSS
 			objectName = strings.Replace(file_name, " ", "_", -1)
 			body := bytes.NewReader(image_bytes)
 			request := &oss.PutObjectRequest{
-				Bucket: oss.Ptr(bucketName), // 存储空间名称
-				Key:    oss.Ptr(objectName), // 对象名称
-				Body:   body,                // 要上传的图片数据
+				Bucket: oss.Ptr(bucketName),
+				Key:    oss.Ptr(objectName),
+				Body:   body,
 			}
 
-			// 发送上传对象的请求
 			_, err = client.PutObject(context.TODO(), request)
 			if err != nil {
 				c.JSON(http.StatusInternalServerError, ErrorResponse{
-					Message: "failed to put object",
+					Message: "Failed to upload object to OSS",
 					Error:   err.Error(),
 				})
 				return
 			}
 		}
 
-		// 返回成功响应
 		c.JSON(http.StatusOK, gin.H{
 			"message": "Request processed successfully",
 		})
