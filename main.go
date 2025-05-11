@@ -10,6 +10,7 @@ import (
 
 	"github.com/aliyun/alibabacloud-oss-go-sdk-v2/oss"
 	"github.com/aliyun/alibabacloud-oss-go-sdk-v2/oss/credentials"
+	"github.com/gabriel-vasile/mimetype"
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 )
@@ -42,7 +43,6 @@ func main() {
 
 	client := oss.NewClient(cfg)
 
-	// 注册路由
 	r.GET("/test", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"result": "success"})
 	})
@@ -58,9 +58,9 @@ func main() {
 			return
 		}
 
-		file_oss_list := []OSSFile{}
-		for index, file_name := range req.File_name_list {
-			url := "http://" + req.Ai_server_host + ":" + req.Ai_server_port + "/view?filename=" + file_name + "&type=output"
+		fileOSSList := []OSSFile{}
+		for index, fileName := range req.File_name_list {
+			url := "http://" + req.Ai_server_host + ":" + req.Ai_server_port + "/view?filename=" + fileName + "&type=output"
 			resp, err := http.Get(url)
 			if err != nil {
 				c.JSON(http.StatusInternalServerError, ErrorResponse{
@@ -78,9 +78,8 @@ func main() {
 				return
 			}
 
-			// 检查 Content-Length（如果存在）
 			contentLength := resp.ContentLength
-			image_bytes, err := io.ReadAll(resp.Body)
+			fileBytes, err := io.ReadAll(resp.Body)
 			if err != nil {
 				c.JSON(http.StatusInternalServerError, ErrorResponse{
 					Message: "Failed to read response body",
@@ -89,16 +88,16 @@ func main() {
 				return
 			}
 
-			if contentLength >= 0 && int64(len(image_bytes)) != contentLength {
+			if contentLength >= 0 && int64(len(fileBytes)) != contentLength {
 				c.JSON(http.StatusInternalServerError, ErrorResponse{
 					Message: "Incomplete image data response body",
-					Error:   "Expected length: " + strconv.FormatInt(contentLength, 10) + ", but t: " + strconv.Itoa(len(image_bytes)),
+					Error:   "Expected length: " + strconv.FormatInt(contentLength, 10) + ", but t: " + strconv.Itoa(len(fileBytes)),
 				})
 				return
 			}
 
-			objectName := GetTimestampFilename(file_name, index)
-			body := bytes.NewReader(image_bytes)
+			objectName := GetTimestampFilename(fileName, index)
+			body := bytes.NewReader(fileBytes)
 			request := &oss.PutObjectRequest{
 				Bucket: oss.Ptr(bucketName),
 				Key:    oss.Ptr(objectName),
@@ -114,14 +113,21 @@ func main() {
 				return
 			}
 
-			oss := fmt.Sprintf("https://%s.oss-%s.aliyuncs.com/%s?x-oss-process=style/small", bucketName, region, objectName)
-			file_oss_list = append(file_oss_list, OSSFile{
+			mime := mimetype.Detect(fileBytes)
+			oss := ""
+			if mime.String() == "image/png" || mime.String() == "image/jpeg" {
+				oss = fmt.Sprintf("https://%s.oss-%s.aliyuncs.com/%s?x-oss-process=style/small", bucketName, region, objectName)
+			} else if mime.String() == "model/gltf-binary" {
+				oss = fmt.Sprintf("https://%s.oss-%s.aliyuncs.com/%s", bucketName, region, objectName)
+			}
+
+			fileOSSList = append(fileOSSList, OSSFile{
 				Filename: objectName,
 				OSS:      oss,
 			})
 		}
 
-		c.JSON(http.StatusOK, file_oss_list)
+		c.JSON(http.StatusOK, fileOSSList)
 	})
 
 	// 启动服务
